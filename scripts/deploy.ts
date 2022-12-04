@@ -4,10 +4,10 @@
 import path from 'path';
 import '@nomiclabs/hardhat-ethers';
 import { artifacts, network, ethers } from 'hardhat';
-import { MyToken } from '../typechain-types';
 import { writeFile, mkdir, existsSync, readFile } from 'fs';
 import { promisify } from 'util';
-import { Utf8ErrorFuncs } from 'ethers/lib/utils';
+import { BaseContract } from 'ethers';
+import { join } from 'path';
 const writeFileAsync = promisify(writeFile);
 const readFileAsync = promisify(readFile);
 const mkdirAsync = promisify(mkdir);
@@ -30,34 +30,47 @@ async function main() {
 
   console.log('Account balance:', (await deployer.getBalance()).toString());
 
-  const contractFactory = await ethers.getContractFactory('MyToken');
-  const deployedContract = await contractFactory.deploy();
-  await deployedContract.deployed();
+  const greeterFactory = await ethers.getContractFactory('Greeter');
+  const greeter = await greeterFactory.deploy('Hello World');
 
-  console.log('Contract address:', deployedContract.address);
+  const tokenFactory = await ethers.getContractFactory('Token');
+  const token = await tokenFactory.deploy();
+
+  await greeter.deployed();
+  await token.deployed();
+
+  console.log('Greeter deployed to:', greeter.address);
+  console.log('Token deployed to:', token.address);
 
   // We also save the contract's artifacts and address in the frontend directory
-  await saveFrontendFiles(deployedContract);
+  await saveFrontendFiles(greeter, 'Greeter');
+  await saveFrontendFiles(token, 'Token');
 }
 
 const contractsDir = path.join(__dirname, '..', 'frontend', 'src', 'contracts');
 
-async function writeAbi() {
-  const ContractArtifact = await artifacts.readArtifact('MyToken');
+async function writeAbi(contractName: string) {
+  const ContractArtifact = await artifacts.readArtifact(contractName);
 
   const abiTs = `export const abi = ${JSON.stringify(ContractArtifact.abi, null, 2)} as const`;
 
-  await writeFileAsync(path.join(contractsDir, 'abi.ts'), abiTs);
-}
+  const contractDir = path.join(contractsDir, contractName);
 
-const contractAddressesFile = path.join(contractsDir, 'addresses.json');
+  if (!existsSync(contractDir)) {
+    await mkdirAsync(contractDir);
+  }
+
+  await writeFileAsync(path.join(contractDir, 'abi.ts'), abiTs);
+}
 
 type Addresses = {
   [network: string]: string;
 };
 
-async function writeContractAddress(token: MyToken) {
+async function writeContractAddress(contract: BaseContract, contractName: string) {
   let currentAddresses: Addresses;
+
+  const contractAddressesFile = path.join(contractsDir, contractName, 'addresses.json');
 
   if (!existsSync(contractAddressesFile)) {
     currentAddresses = {};
@@ -71,20 +84,21 @@ async function writeContractAddress(token: MyToken) {
 
   const updatedAddresses = {
     ...currentAddresses,
-    [network.name]: token.address,
+    [network.name]: contract.address,
   };
 
   await writeFileAsync(contractAddressesFile, JSON.stringify(updatedAddresses, undefined, 2));
 }
 
-async function saveFrontendFiles(token: MyToken) {
-  if (!existsSync(contractsDir)) {
-    await mkdirAsync(contractsDir);
+async function saveFrontendFiles(contract: BaseContract, contractName: string) {
+  const contractFolder = join(contractsDir, contractName);
+  if (!existsSync(contractFolder)) {
+    await mkdirAsync(contractFolder);
   }
 
-  await writeContractAddress(token);
+  await writeContractAddress(contract, contractName);
 
-  await writeAbi();
+  await writeAbi(contractName);
 }
 
 main()
