@@ -1,7 +1,5 @@
-# Boilerplate template for a project with hardhat, typescript, react, vite, and a subgraph
+## Dan Oveds EVM with Front end Demo App
 
-This is a template repository for the way I like to work with react and smart contracts on the ethereum blockchain.
+Contracts located in [/contracts](/contracts)
 
-It comes setup with a standard erc721 token contract by OpenZeppelin.
-
-ToDo: setup instructions
+Frontend located in in [/frontend/src/App.tsx](/frontend/src/App.tsx)
